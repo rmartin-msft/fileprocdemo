@@ -1,0 +1,14 @@
+C:\dev\source\repos\NHS\testpool\bin\Debug\net9.0\testpool.exe
+C:\dev\source\repos\NHS\testpool\bin\Debug\net9.0\testpool.deps.json
+C:\dev\source\repos\NHS\testpool\bin\Debug\net9.0\testpool.runtimeconfig.json
+C:\dev\source\repos\NHS\testpool\bin\Debug\net9.0\testpool.dll
+C:\dev\source\repos\NHS\testpool\bin\Debug\net9.0\testpool.pdb
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\testpool.GeneratedMSBuildEditorConfig.editorconfig
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\testpool.AssemblyInfoInputs.cache
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\testpool.AssemblyInfo.cs
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\testpool.csproj.CoreCompileInputs.cache
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\testpool.dll
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\refint\testpool.dll
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\testpool.pdb
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\testpool.genruntimeconfig.cache
+C:\dev\source\repos\NHS\testpool\obj\Debug\net9.0\ref\testpool.dll
