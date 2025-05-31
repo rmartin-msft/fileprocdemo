@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\dev\\source\\repos\\NHS\\testpool\\testpool.csproj": {}
+    "C:\\dev\\source\\repos\\nhs\\fileprocdemo\\testpool\\testpool.csproj": {}
   },
   "projects": {
-    "C:\\dev\\source\\repos\\NHS\\testpool\\testpool.csproj": {
+    "C:\\dev\\source\\repos\\nhs\\fileprocdemo\\testpool\\testpool.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\dev\\source\\repos\\NHS\\testpool\\testpool.csproj",
+        "projectUniqueName": "C:\\dev\\source\\repos\\nhs\\fileprocdemo\\testpool\\testpool.csproj",
         "projectName": "testpool",
-        "projectPath": "C:\\dev\\source\\repos\\NHS\\testpool\\testpool.csproj",
+        "projectPath": "C:\\dev\\source\\repos\\nhs\\fileprocdemo\\testpool\\testpool.csproj",
         "packagesPath": "C:\\Users\\rmartin\\.nuget\\packages\\",
-        "outputPath": "C:\\dev\\source\\repos\\NHS\\testpool\\obj\\",
+        "outputPath": "C:\\dev\\source\\repos\\nhs\\fileprocdemo\\testpool\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -26,7 +26,6 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -45,7 +44,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "9.0.200"
       },
       "frameworks": {
         "net9.0": {
@@ -66,7 +65,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.204/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

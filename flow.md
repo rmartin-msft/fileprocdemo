@@ -1,43 +1,59 @@
 
 ```mermaid
 sequenceDiagram
-    participant External
-    participant FileProcessor
-    participant Server
+    participant Caas
+    participant Mesh    
+    participant FileIngestor
+    participant FileJobStorageDb
+    participant Queue
+    participant RecordProcessor
+    
+    
+    note over RecordProcessor: Responsible for processing records from queue
+    note over RecordProcessor, API: Works with API to process records
 
-    External->>FileProcessor: Drops file
-    FileProcessor-->>External: Job Queued
+    note over FileIngestor: Responsible for process CaaS file enqueue records for later processing
+            
+    FileIngestor-->>Mesh: Listens for new Files    
+    Caas-->>Mesh: Drops File
+    activate Mesh
+    Mesh->>FileIngestor: New File Recieved for Processing
+    deactivate Mesh
+    par Ingest Files 
+        activate FileIngestor
+
+        FileIngestor-->>+FileJobStorageDb: Log Job Id
+        FileJobStorageDb-->-FileIngestor: OK
+    
+        loop While Records in file To Process                            
+            FileIngestor->>Queue: Enqueue Record(s)                     
+                Queue-->FileIngestor: Message Queue OK            
+            Note over FileIngestor: More efficient to read groups of messages from the queue
+        end
+
+        FileIngestor->>+FileJobStorageDb: Update Job Id with totalRecords for processing
+        FileJobStorageDb-->>-FileIngestor: OK
+
+        deactivate FileIngestor        
+    and Process Records
         
+            loop While Message In Queue                            
+                RecordProcessor->>Queue: Dequeue Records          
+                activate RecordProcessor                          
+                activate API
+                RecordProcessor->>+API: Call API
+                alt API Accepts
+                    API-->>RecordProcessor: Accept API Call (202 OK Body operation Id)
+                    RecordProcessor->>Queue: Acknowledge Record                    
+                else API Unable to Accept
+                    API-->>RecordProcessor: Reject API Call (400 Bad Request/405 Method Not Allowed)
+                    RecordProcessor->>Queue: Return Record to Queue
+                    
+                end
+                deactivate API            
+                Note over RecordProcessor: More efficient to send messages to the queue in a batches of records
+                deactivate RecordProcessor
+            end       
+    end     
 ```
 
-```mermaid
-architecture-beta
-group function(cloud)[Public]
-group processor(cloud)[FileProcessor]
-service fi(server)[fi] in function
-service database(database)[sql] in function
-```
-
-User->>Browser: Open website
-    Browser->>Server: Request page
-    Server-->>Browser: Send HTML/CSS/JS
-    Browser-->>User: Render page
-    User->>Browser: Interact with page
-    Browser->>Server: Send data
-    Server-->>Browser: Acknowledge data
-    Browser-->>User: Update UI
-
-
-1. File dropped into blob storage
-2. Event Grid trigger fireds - on new file for processing
-3. File queued - current impl. seems to group file parts internally onto concurrent queue, then push batches to Azure Queue
-4. Azure Queued function(s) process tha batches
-5. Batches put records into SQL Server
-6. Some parts of the process require further database operations and things to have completed first.
-
-## ? Consideration:
-- Inititial processing job completes async and returns a job ID - who monitors this?
-- Break sequential process into async steps and enqueue a subsequent task on the queue.
-- Determine when the job has been completed (ie all records processed)
-  - Is is enough to know that first SQL taks was started? What's the consequence of doing that step again?
-  - 
