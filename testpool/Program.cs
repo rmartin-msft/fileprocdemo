@@ -41,12 +41,13 @@ class Program
         
         builder.ConfigureServices(
             services =>
-            {                
+            {
                 // Register your services here
                 services.AddSingleton<IFileJobStorageRepository, FileJobStorage>();
-                services.AddTransient<IQueue, QueueManager>();
+                services.AddTransient<IQueue, QueueManager>();                
                 services.AddHostedService<FileIngestorService>();
                 services.AddHostedService<FileProcessorService>();
+                
             }
         );
 
