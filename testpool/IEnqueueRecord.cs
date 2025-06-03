@@ -1,8 +1,10 @@
 
 namespace testpool;
+
+using System.Security.AccessControl;
 using System.Threading.Tasks;
 
-public interface IEnqueue
+public interface IQueue    
 {
   /// <summary>
   /// Enqueues a record for processing.

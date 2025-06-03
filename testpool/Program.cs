@@ -1,144 +1,58 @@
 ﻿namespace testpool;
 
-using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
-
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 class Program
 {
-    static IFileJobStorageRepository _fileJobStorageRepository = new FileJobStorage(); 
+    static async Task Main(string[] args)
+    {            
+        var builder = Host.CreateDefaultBuilder(args);
 
-    static bool VerifyHeaders(string? line)
-    {
-        if (line == null)
+        builder.ConfigureAppConfiguration((context, config) =>
         {
-            return false;
-        }
+            IHostEnvironment env = context.HostingEnvironment;
+            // Add configuration sources if needed
+            config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);            
 
-        string[] headers = line.Split(',');
-
-        if (headers.Length != 6)
-        {
-            return false;
-        }
-
-        return headers[0].Trim() == "Id" &&
-               headers[1].Trim() == "First name" &&
-               headers[2].Trim() == "Last name" &&
-               headers[3].Trim() == "Full name" &&
-               headers[4].Trim() == "Language" &&
-               headers[5].Trim() == "Gender";
-    }
-    static async Task<bool> VerifyHeadersAsync(string? line)
-    {
-        bool result = false;
-
-        await Task.Run(() => result = VerifyHeaders(line));
-
-        return result;
-    }
-
-    static async Task<MyRecord?> ParseLineAsync(string line)
-    {
-        MyRecord? record = null;
-
-        await Task.Run(() =>
-        {                     
-            string[] parts = line.Split(',');
-
-            if (parts.Length != 6)
+            if (env.IsDevelopment())
             {
-                throw new FormatException("Invalid number of fields in line.");
+                config.AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+                config.AddUserSecrets<Program>(optional: true);
             }
-
-            try
-            {
-                record = new MyRecord()
-                {
-                    Id = int.Parse(parts[0].Trim()),
-                    FirstName = parts[1].Trim(),
-                    LastName = parts[2].Trim(),
-                    FullName = parts[3].Trim(),
-                    Language = parts[4].Trim(),
-                    Gender = parts[5].Trim()
-                };
-            }
-            catch (FormatException)
-            {
-                throw;
-            }
-            catch (OverflowException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                throw;
-            }        
+            
+            config.AddEnvironmentVariables();
         });
 
-        return record;
+        builder.ConfigureLogging(logging =>
+        {
+            logging.ClearProviders();
+            logging.AddSimpleConsole(option => 
+            {
+                option.IncludeScopes = true;
+                option.TimestampFormat = "yyyy-mm-dd hh:mm:ss ";
+                option.SingleLine = true;
+            });
+            logging.AddDebug();
+        });
         
-    }
-
-    static async Task Main(string[] args)
-    {
-        string fileName = "c:/scratch/TestData.csv";
-
-        StreamReader? streamReader = null;
-        try
-        {
-            IEnqueue recordQueue = new QueueManager(); // Assuming you have an implementation of IEnqueueRecord
-
-            streamReader = new StreamReader(fileName);
-            string? line;
-
-            line = await streamReader.ReadLineAsync();
-
-            if (!await VerifyHeadersAsync(line))
-            {
-                Console.Error.WriteLine("Invalid file format.");
-                return;
+        builder.ConfigureServices(
+            services =>
+            {                
+                // Register your services here
+                services.AddSingleton<IFileJobStorageRepository, FileJobStorage>();
+                services.AddTransient<IQueue, QueueManager>();
+                services.AddHostedService<FileIngestorService>();
+                services.AddHostedService<FileProcessorService>();
             }
+        );
 
-            JobId job = JobId.Create("Test job metadata");
-            await _fileJobStorageRepository.WriteJobToStorageAsync(job, -1, fileName);
+        IHost host = builder.Build();
+        
 
-            int recordsInJob = 0;
-            while ((line = await streamReader.ReadLineAsync()) != null)
-            {
-                MyRecord? record = await ParseLineAsync(line);
-
-                if (record != null)
-                {
-                    recordsInJob++;
-                    await recordQueue.EnqueueRecordAsync(record); // Enqueue the record for processing                    
-                }
-            }
-
-            recordQueue.Flush(); // Ensure all records are committed to the queue
-
-            await _fileJobStorageRepository.WriteJobToStorageAsync(job, recordsInJob, fileName); // Update job status after processing all records
-
-            var jobInfo = await _fileJobStorageRepository.GetJobStatusAsync(job);
-
-            Console.WriteLine($"Job ID: {jobInfo.Id.Value}");
-            Console.WriteLine($"Records Processed: {jobInfo.RecordsProcessed}");
-            Console.WriteLine($"Total Records: {jobInfo.TotalRecords}");
-            Console.WriteLine($"Is Complete: {jobInfo.IsComplete}");    
-            Console.WriteLine($"Record Errors: {jobInfo.RecordErrors}");
-        }
-        catch (FileNotFoundException ex)
-        {
-            Console.WriteLine($"File not found: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred: {ex.Message}");
-        }
-        finally
-        {
-            streamReader?.Dispose();
-        }    
+        await host.RunAsync();        
     }
 }
