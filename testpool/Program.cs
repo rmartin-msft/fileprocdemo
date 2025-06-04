@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
 
 class Program
 {
@@ -44,7 +45,33 @@ class Program
             {
                 // Register your services here
                 services.AddSingleton<IFileJobStorageRepository, FileJobStorage>();
-                services.AddTransient<IQueue, QueueManager>();                
+                services.AddTransient<IQueue, QueueManager>();
+
+                services.AddTransient<IQueue2<MyRecord>, Queue<MyRecord>>(
+                    sp => new Queue<MyRecord>(
+                        sp.GetRequiredService<ILogger<Queue<MyRecord>>>(),
+                        sp.GetRequiredService<IConfiguration>()["ServiceBus:RecordTopicName"] ?? "defaultTopic"
+                    )
+                );
+
+                services.AddTransient<IQueue2<ApiEvent>, Queue<ApiEvent>>(
+                    sp => new Queue<ApiEvent>(
+                        sp.GetRequiredService<ILogger<Queue<ApiEvent>>>(),
+                        sp.GetRequiredService<IConfiguration>()["ServiceBus:ApiEventTopicName"] ?? "defaultApiEventTopic"
+                    )
+                );
+
+
+                // services.AddKeyedTransient<IQueue, QueueManager>(
+                //     "file",
+                //     (sp, key) => new QueueManager(
+                //         sp.GetRequiredService<ILogger<QueueManager>>(),
+                //         sp.GetRequiredService<IConfiguration>(),
+                //         (string)key
+                //     )
+                // );
+
+
                 services.AddHostedService<FileIngestorService>();
                 services.AddHostedService<FileProcessorService>();
                 

@@ -16,7 +16,7 @@ public class QueueManager : IQueue, IDisposable
   
   private Lazy<ServiceBusClient> _serviceBusClient;
   private Lazy<ServiceBusSender> _serviceBusSender;
-  public QueueManager(ILogger<QueueManager> logger, IConfiguration configuration)
+  public QueueManager(ILogger<QueueManager> logger, IConfiguration configuration, string key = "default")
   {
     _logger = logger;
     _configuration = configuration;
@@ -24,6 +24,9 @@ public class QueueManager : IQueue, IDisposable
     string serviceBusName = _configuration?["ServiceBus:Name"] ?? "defaultServiceBus";
     string recordTopicName = _configuration?["ServiceBus:RecordTopicName"] ?? "defaultRecordTopic";
     string tenantId = _configuration?["ServiceBus:TenantId"] ?? "defaultTenantId";
+
+    _logger.LogInformation($"Initializing QueueManager instance {key} with ServiceBus: {serviceBusName}, RecordTopic: {recordTopicName}, TenantId: {tenantId}", 
+      serviceBusName, recordTopicName, tenantId);
 
     _serviceBusClient = new Lazy<ServiceBusClient>(() =>
     {

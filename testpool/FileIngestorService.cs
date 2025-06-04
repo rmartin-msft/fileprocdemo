@@ -5,19 +5,19 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-
+using Microsoft.Extensions.DependencyInjection;
 
 class FileIngestorService : IHostedService
 {
     private readonly IFileJobStorageRepository _fileJobStorageRepository;
     private readonly ILogger<FileIngestorService> _logger;
-    private readonly IQueue _queue;
+    private readonly IQueue2<MyRecord> _queue;
     private readonly IConfiguration _configuration;
 
     public FileIngestorService(
         IFileJobStorageRepository fileJobStorageRepository,
         ILogger<FileIngestorService> logger,
-        IQueue queue,
+        /* [FromKeyedServices("file")] */ IQueue2<MyRecord> queue,
         IConfiguration configuration)
     {
         _logger = logger;
@@ -107,12 +107,12 @@ class FileIngestorService : IHostedService
             return false;
         }
 
-        return headers[0].Trim() == "Id" &&
-               headers[1].Trim() == "First name" &&
-               headers[2].Trim() == "Last name" &&
-               headers[3].Trim() == "Full name" &&
-               headers[4].Trim() == "Language" &&
-               headers[5].Trim() == "Gender";
+        return headers[0].Trim().ToLower() == "id" &&
+               headers[1].Trim().ToLower() == "first name" &&
+               headers[2].Trim().ToLower() == "last name" &&
+               headers[3].Trim().ToLower() == "full name" &&
+               headers[4].Trim().ToLower() == "language" &&
+               headers[5].Trim().ToLower() == "gender";
     }
     static async Task<bool> VerifyHeadersAsync(string? line)
     {
