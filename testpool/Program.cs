@@ -45,32 +45,31 @@ class Program
             {
                 // Register your services here
                 services.AddSingleton<IFileJobStorageRepository, FileJobStorage>();
-                services.AddTransient<IQueue, QueueManager>();
-
-                services.AddTransient<IQueue2<MyRecord>, Queue<MyRecord>>(
-                    sp => new Queue<MyRecord>(
+                
+                services.AddSingleton<IQueue2<MyRecord>, ServiceBusQueue<MyRecord>>(
+                    sp => new ServiceBusQueue<MyRecord>(
                         sp.GetRequiredService<ILogger<Queue<MyRecord>>>(),
-                        sp.GetRequiredService<IConfiguration>()["ServiceBus:RecordTopicName"] ?? "defaultTopic"
+                            new ServiceBusQueue<MyRecord>.QueueConfiguration
+                            {
+                                ServiceBusName = sp.GetRequiredService<IConfiguration>()["ServiceBus:Name"] ?? "defaultServiceBus",
+                                Topic = sp.GetRequiredService<IConfiguration>()["ServiceBus:RecordTopicName"] ?? "defaultTopic",
+                                SubscriptionName = sp.GetRequiredService<IConfiguration>()["ServiceBus:SubscriptionName"] ?? "defaultSubscription",                                
+                                TenantId = sp.GetRequiredService<IConfiguration>()["ServiceBus:TenantId"] ?? "defaultTenantId"  
+                            }                        
                     )
                 );
 
-                services.AddTransient<IQueue2<ApiEvent>, Queue<ApiEvent>>(
+                services.AddSingleton<IQueue2<ApiEvent>, Queue<ApiEvent>>(
                     sp => new Queue<ApiEvent>(
                         sp.GetRequiredService<ILogger<Queue<ApiEvent>>>(),
-                        sp.GetRequiredService<IConfiguration>()["ServiceBus:ApiEventTopicName"] ?? "defaultApiEventTopic"
+                            new Queue<ApiEvent>.QueueConfiguration
+                            {
+                                ServiceBusName = sp.GetRequiredService<IConfiguration>()["ServiceBus:Name"] ?? "defaultServiceBus",
+                                Topic = sp.GetRequiredService<IConfiguration>()["ServiceBus:ApiEventTopicName"] ?? "defaultApiEventTopic",
+                                SubscriptionName = sp.GetRequiredService<IConfiguration>()["ServiceBus:ApiSubscriptionName"] ?? "defaultSubscription"
+                            }                        
                     )
-                );
-
-
-                // services.AddKeyedTransient<IQueue, QueueManager>(
-                //     "file",
-                //     (sp, key) => new QueueManager(
-                //         sp.GetRequiredService<ILogger<QueueManager>>(),
-                //         sp.GetRequiredService<IConfiguration>(),
-                //         (string)key
-                //     )
-                // );
-
+                );              
 
                 services.AddHostedService<FileIngestorService>();
                 services.AddHostedService<FileProcessorService>();

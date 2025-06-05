@@ -17,7 +17,7 @@ class FileIngestorService : IHostedService
     public FileIngestorService(
         IFileJobStorageRepository fileJobStorageRepository,
         ILogger<FileIngestorService> logger,
-        /* [FromKeyedServices("file")] */ IQueue2<MyRecord> queue,
+        IQueue2<MyRecord> queue,
         IConfiguration configuration)
     {
         _logger = logger;

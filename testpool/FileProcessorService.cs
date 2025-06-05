@@ -13,59 +13,61 @@ class FileProcessorService : IHostedService
 {
   private readonly IConfiguration _configuration;
   private readonly ILogger<FileProcessorService> _logger;
+  private readonly IQueue2<MyRecord> _queue;
+  private int _targetRate =  -1; // default to infinite rate
+  private readonly TimeSpan _processingRate = TimeSpan.FromSeconds(5);
 
   public FileProcessorService(
       ILogger<FileProcessorService> logger,
-      IConfiguration configuration)
+      IQueue2<MyRecord> queue,
+      IConfiguration configuration, 
+      int targetRate = -1)
   {
     _logger = logger;
-    _configuration = configuration;
+    _queue = queue;
+    _configuration = configuration;    
+    _targetRate = targetRate;
 
-    _logger.LogInformation("FileProcessorService initialized.");
+    _logger.LogInformation($"FileProcessorService initialized and running target througput {(targetRate == -1 ? "Infinite" : targetRate)} / sec.");
   }
 
   public async Task StartAsync(CancellationToken cancellationToken)
-  {
-    string serviceBusName = _configuration["ServiceBus:Name"] ?? "defaultServiceBus";
-    string topicName = _configuration["ServiceBus:RecordTopicName"] ?? "defaultRecordTopic";
-    string subscriptionName = _configuration["ServiceBus:SubscriptionName"] ?? "defaultSubscription";
-    string tenantId = _configuration["ServiceBus:TenantId"] ?? "defaultTenantId";
+  {    
+    int newWaitTime = 0;
+    double targetTimePerOperation = double.Max(0, 1000 / _targetRate);
 
-    await using ServiceBusClient client = new(serviceBusName,
-        new DefaultAzureCredential(new DefaultAzureCredentialOptions()
-        {
-          TenantId = tenantId
-        }
-      ));
+    // we will use a stopwatch to measure the time taken to process the messages
+    System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-    // create a receiver for our subscription that we can use to receive the message
-    ServiceBusReceiver receiver = client.CreateReceiver(topicName, subscriptionName);
-
-    // the received message is a different type as it contains some service set properties
     while (cancellationToken.IsCancellationRequested == false)
     {
       try
       {
+        // wait for the processing rate         
+        if (newWaitTime > 0) await Task.Delay(newWaitTime, cancellationToken);
         // receive a message from the queue
-        ServiceBusReceivedMessage receivedMessage = await receiver.ReceiveMessageAsync(null, cancellationToken);
+        var receivedMessage = await _queue.DequeueRecordAsync((receivedMessage) =>
+          {
+            // process the message
+            // get the message body as a string
 
-        if (receivedMessage != null)
-        {
-          // process the message
+            _logger.LogInformation($"Received message: {receivedMessage?.ToString() ?? "<EMPTY>"}");
 
-          // get the message body as a string
-          string body = receivedMessage.Body.ToString();
-          Console.WriteLine(body);
+            // Simulate Calling the API which will process the the message
 
-          // ProcessMessageAsync(receivedMessage).GetAwaiter().GetResult();
+            return true; // return true to indicate that the message was passed to the API for processing          
 
-          // complete the message so that it is not received again
-          receiver.CompleteMessageAsync(receivedMessage, cancellationToken).GetAwaiter().GetResult();
-        }
+          }
+        , cancellationToken);
+
+        newWaitTime = int.Max(0, (int)(targetTimePerOperation - stopwatch.ElapsedMilliseconds));
+        _logger.LogInformation($"Operation Delay now {newWaitTime}");
+        
+        stopwatch.Restart();
       }
       catch (TaskCanceledException)
-      { 
-        
+      {
+
       }
       catch (Exception ex)
       {
@@ -74,12 +76,13 @@ class FileProcessorService : IHostedService
     }
 
     _logger.LogInformation("Cancellation requested, stopping FileProcessorService.");
-     
-    await Task.CompletedTask;
+     await Task.CompletedTask;
   }
+
+
 
   public async Task StopAsync(CancellationToken cancellationToken)
   {
-      await Task.CompletedTask;
+    await Task.CompletedTask;
   }
 }
