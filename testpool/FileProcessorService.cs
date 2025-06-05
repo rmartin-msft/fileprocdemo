@@ -1,82 +1,108 @@
 namespace testpool;
 
 using Microsoft.Extensions.Hosting;
-using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using Azure.Messaging.ServiceBus;
-using Azure.Identity;
 using System.Threading;
+using Microsoft.Extensions.Options;
+
+public sealed class FileProcessorServiceOptions
+{
+  public int TargetRate { get; set; } = -1; // default to infinite rate
+  public bool IsEnabled { get; set; } = true; // default to enabled
+}
 
 class FileProcessorService : IHostedService
 {
-  private readonly IConfiguration _configuration;
   private readonly ILogger<FileProcessorService> _logger;
-  private readonly IQueue2<MyRecord> _queue;
-  private int _targetRate =  -1; // default to infinite rate
+  private readonly IQueue<MyRecord> _queue;
+  private readonly IQueue<ApiEvent> _apiEventQueue;
+  private int _targetRate = -1; // default to infinite rate
   private readonly TimeSpan _processingRate = TimeSpan.FromSeconds(5);
+  private readonly bool _isEnabled;
+
+
 
   public FileProcessorService(
       ILogger<FileProcessorService> logger,
-      IQueue2<MyRecord> queue,
-      IConfiguration configuration, 
-      int targetRate = -1)
+      IQueue<MyRecord> queue,
+      IQueue<ApiEvent> apiEventQueue,
+      IOptions<FileProcessorServiceOptions> configuration)
   {
     _logger = logger;
     _queue = queue;
-    _configuration = configuration;    
-    _targetRate = targetRate;
+    _apiEventQueue = apiEventQueue;
+    _targetRate = configuration.Value.TargetRate;
+    _isEnabled = configuration.Value.IsEnabled;
 
-    _logger.LogInformation($"FileProcessorService initialized and running target througput {(targetRate == -1 ? "Infinite" : targetRate)} / sec.");
+    if (_isEnabled)
+      _logger.LogInformation($"FileProcessorService initialized and running target througput {(_targetRate == -1 ? "Infinite" : _targetRate)} / sec.");
   }
 
   public async Task StartAsync(CancellationToken cancellationToken)
-  {    
-    int newWaitTime = 0;
-    double targetTimePerOperation = double.Max(0, 1000 / _targetRate);
-
-    // we will use a stopwatch to measure the time taken to process the messages
-    System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-    while (cancellationToken.IsCancellationRequested == false)
+  {
+    if (_isEnabled)
     {
-      try
+      int newWaitTime = 0;
+      int lastWaitTime = 0;
+      double targetTimePerOperation = double.Max(0, 1000 / _targetRate);
+
+      // we will use a stopwatch to measure the time taken to process the messages
+      System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+      while (cancellationToken.IsCancellationRequested == false)
       {
-        // wait for the processing rate         
-        if (newWaitTime > 0) await Task.Delay(newWaitTime, cancellationToken);
-        // receive a message from the queue
-        var receivedMessage = await _queue.DequeueRecordAsync((receivedMessage) =>
-          {
-            // process the message
-            // get the message body as a string
+        try
+        {
+          // wait for the processing rate         
+          if (newWaitTime > 0) await Task.Delay(newWaitTime, cancellationToken);
+          // receive a message from the queue
+          var receivedMessage = await _queue.DequeueRecordAsync((receivedMessage) =>
+            {
+              // process the message
+              // get the message body as a string
 
-            _logger.LogInformation($"Received message: {receivedMessage?.ToString() ?? "<EMPTY>"}");
 
-            // Simulate Calling the API which will process the the message
+              _logger.LogInformation($"Received message: {receivedMessage.ToString() ?? "<EMPTY>"}");
 
-            return true; // return true to indicate that the message was passed to the API for processing          
+              // Simulate Calling the API which will process the the message
 
-          }
-        , cancellationToken);
+              ApiEvent apiEvent = new ApiEvent
+              {
+                Id = receivedMessage.Id,
+                Metadata = receivedMessage.Metadata,
+                IsSuccess = true // Simulate a successful API call
+              };
 
-        newWaitTime = int.Max(0, (int)(targetTimePerOperation - stopwatch.ElapsedMilliseconds));
-        _logger.LogInformation($"Operation Delay now {newWaitTime}");
-        
-        stopwatch.Restart();
+              // Simulate the API recording the successful processing of the message
+              _apiEventQueue.EnqueueRecordAsync(apiEvent).GetAwaiter().GetResult();
+
+              return true; // return true to indicate that the message was passed to the API for processing          
+
+            }
+          , cancellationToken);
+
+          lastWaitTime = newWaitTime;
+          newWaitTime = int.Max(0, (int)(targetTimePerOperation - stopwatch.ElapsedMilliseconds));
+
+          if (lastWaitTime != newWaitTime) _logger.LogInformation($"Operation Delay now {newWaitTime}");
+
+          stopwatch.Restart();
+        }
+        catch (TaskCanceledException)
+        {
+
+        }
+        catch (Exception ex)
+        {
+          _logger.LogError(ex, "Error processing message.");
+        }
       }
-      catch (TaskCanceledException)
-      {
 
-      }
-      catch (Exception ex)
-      {
-        _logger.LogError(ex, "Error processing message.");
-      }
+      _logger.LogInformation("Cancellation requested, stopping FileProcessorService.");
     }
-
-    _logger.LogInformation("Cancellation requested, stopping FileProcessorService.");
-     await Task.CompletedTask;
+    
+    await Task.CompletedTask;
   }
 
 

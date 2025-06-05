@@ -8,9 +8,9 @@ using Azure.Messaging.ServiceBus;
 using Azure.Identity;
 using System.Reflection.Metadata.Ecma335;
 
-public class Queue<T> : IQueue2<T> where T : new()
+public class Queue<T> : IQueue<T> where T : new()
 {
-    public class QueueConfiguration
+    public sealed class QueueConfiguration
     {
         public static readonly QueueConfiguration DefaultConfiguration = new QueueConfiguration();
         public string Topic { get; set; } = "defaultTopic";

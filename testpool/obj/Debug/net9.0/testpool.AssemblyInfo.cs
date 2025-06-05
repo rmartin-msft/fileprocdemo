@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("testpool")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0d4c54ed6b2c4d53f99b2afc3bac97f389ad8352")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5447f3717b9c5547b5244ed1f3cfd4a994a034e6")]
 [assembly: System.Reflection.AssemblyProductAttribute("testpool")]
 [assembly: System.Reflection.AssemblyTitleAttribute("testpool")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

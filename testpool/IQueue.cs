@@ -4,7 +4,7 @@ namespace testpool;
 using System.Security.AccessControl;
 using System.Threading.Tasks;
 
-public interface IQueue2<T>
+public interface IQueue<T>
 {
     /// <summary>
     /// Asynchronously enqueues a record for processing.

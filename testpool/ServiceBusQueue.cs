@@ -1,22 +1,19 @@
 namespace testpool;
 
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
 using Azure.Messaging.ServiceBus;
 using Azure.Identity;
-using System.Reflection.Metadata.Ecma335;
+using Microsoft.Extensions.Options;
 
-public class ServiceBusQueue<T> : IQueue2<T> where T : new()
+public class ServiceBusQueue<T> : IQueue<T> where T : new()
 {
-  private readonly ILogger<Queue<T>> _logger;    
+  private readonly ILogger<ServiceBusQueue<T>> _logger;    
   private Lazy<ServiceBusClient> _serviceBusClient;
   private Lazy<ServiceBusSender> _serviceBusSender;
   private Lazy<ServiceBusReceiver> _serviceBusReceiver;
-  public class QueueConfiguration
-  {
-    public static readonly QueueConfiguration DefaultConfiguration = new QueueConfiguration();
+  public sealed class QueueConfiguration
+  {    
     public string Topic { get; set; } = "defaultTopic";
     public string SubscriptionName { get; set; } = "defaultSubscription";
     public string ServiceBusName { get; set; } = "defaultServiceBus";
@@ -24,11 +21,10 @@ public class ServiceBusQueue<T> : IQueue2<T> where T : new()
   }
 
 
-  public ServiceBusQueue(ILogger<Queue<T>> logger, QueueConfiguration? configuration = null)
+  public ServiceBusQueue(ILogger<ServiceBusQueue<T>> logger, IOptions<ServiceBusQueue<T>.QueueConfiguration> options)
   {
-    if (configuration == null) configuration = QueueConfiguration.DefaultConfiguration;
 
-    Topic = configuration.Topic;
+    Topic = options.Value.Topic;
     _logger = logger;
     {
       logger.LogInformation($"Queue instance created Listening on {Topic} for {typeof(T)}.");
@@ -36,10 +32,10 @@ public class ServiceBusQueue<T> : IQueue2<T> where T : new()
 
     _serviceBusClient = new Lazy<ServiceBusClient>(() =>
     {
-      ServiceBusClient client = new(configuration.ServiceBusName,
+      ServiceBusClient client = new(options.Value.ServiceBusName,
         new DefaultAzureCredential(new DefaultAzureCredentialOptions()
         {
-          TenantId = configuration.TenantId ?? String.Empty
+          TenantId = options.Value.TenantId ?? string.Empty
         }
       ));
 
@@ -55,7 +51,7 @@ public class ServiceBusQueue<T> : IQueue2<T> where T : new()
 
     _serviceBusReceiver = new Lazy<ServiceBusReceiver>(() =>
     {
-      return _serviceBusClient.Value.CreateReceiver(configuration.Topic, configuration.SubscriptionName);
+      return _serviceBusClient.Value.CreateReceiver(options.Value.Topic, options.Value.SubscriptionName);
     });
   }
 
@@ -71,14 +67,14 @@ public class ServiceBusQueue<T> : IQueue2<T> where T : new()
         return;
       }
       else
-      {
-        _logger.LogInformation($"Enqueuing record of type {record.ToString() ?? "<EMPTY>"} to topic '{Topic}'");
-
+      {        
         string recordData = System.Text.Json.JsonSerializer.Serialize(record);
+        
+        _logger.LogInformation($"Enqueuing '{recordData}' to topic '{Topic}'");
 
         await _serviceBusSender.Value.SendMessageAsync(
-          new ServiceBusMessage(recordData)
-        );
+      new ServiceBusMessage(recordData)
+    );
       }
     }
 

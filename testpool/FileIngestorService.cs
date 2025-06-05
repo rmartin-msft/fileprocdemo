@@ -1,37 +1,46 @@
 namespace testpool;
 
 using Microsoft.Extensions.Hosting;
-using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
+
+public sealed class FileIngestorServiceOptions
+{
+    public string Filename { get; set; } = String.Empty;
+}
 class FileIngestorService : IHostedService
 {
     private readonly IFileJobStorageRepository _fileJobStorageRepository;
     private readonly ILogger<FileIngestorService> _logger;
-    private readonly IQueue2<MyRecord> _queue;
-    private readonly IConfiguration _configuration;
+    private readonly IQueue<MyRecord> _queue;
+    private readonly string _filenameToProcess;
 
     public FileIngestorService(
         IFileJobStorageRepository fileJobStorageRepository,
         ILogger<FileIngestorService> logger,
-        IQueue2<MyRecord> queue,
-        IConfiguration configuration)
+        IQueue<MyRecord> queue,
+        IOptions<FileIngestorServiceOptions> options)
     {
         _logger = logger;
         _queue = queue;
         _fileJobStorageRepository = fileJobStorageRepository;
-        _configuration = configuration;
-            
+        _filenameToProcess = options.Value.Filename; ;
 
         _logger.LogInformation("FileIngestorService initialized.");
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        string fileName = "c:/scratch/TestData.csv";
+    {                
+        string fileName = _filenameToProcess;
+
+        if (string.IsNullOrEmpty(fileName))
+        {
+            _logger.LogWarning("Skipping: Filename is not specified in the configuration or commandline argument FileIngestorService:Filename=PATH TO FILE.CSV");
+            return;
+        }
 
         StreamReader? streamReader = null;
         try
@@ -57,6 +66,8 @@ class FileIngestorService : IHostedService
 
                 if (record != null)
                 {
+                    record.Metadata = job.Metadata; // Associate the record with the job metadata
+
                     recordsInJob++;
                     await _queue.EnqueueRecordAsync(record); // Enqueue the record for processing                    
                 }
@@ -92,7 +103,7 @@ class FileIngestorService : IHostedService
         // Implementation for stopping the file ingestion service
         await Task.CompletedTask;
     }
-    
+
     static bool VerifyHeaders(string? line)
     {
         if (line == null)
@@ -128,7 +139,7 @@ class FileIngestorService : IHostedService
         MyRecord? record = null;
 
         await Task.Run(() =>
-        {                     
+        {
             string[] parts = line.Split(',');
 
             if (parts.Length != 6)
@@ -159,11 +170,11 @@ class FileIngestorService : IHostedService
             catch (Exception)
             {
                 throw;
-            }        
+            }
         });
 
         return record;
-        
+
     }
 }
 
