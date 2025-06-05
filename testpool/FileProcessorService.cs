@@ -1,85 +1,114 @@
 namespace testpool;
 
 using Microsoft.Extensions.Hosting;
-using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using Azure.Messaging.ServiceBus;
-using Azure.Identity;
 using System.Threading;
+using Microsoft.Extensions.Options;
+
+public sealed class FileProcessorServiceOptions
+{
+  public int TargetRate { get; set; } = -1; // default to infinite rate
+  public bool IsEnabled { get; set; } = true; // default to enabled
+}
 
 class FileProcessorService : IHostedService
 {
-  private readonly IConfiguration _configuration;
   private readonly ILogger<FileProcessorService> _logger;
+  private readonly IQueue<MyRecord> _queue;
+  private readonly IQueue<ApiEvent> _apiEventQueue;
+  private int _targetRate = -1; // default to infinite rate
+  private readonly TimeSpan _processingRate = TimeSpan.FromSeconds(5);
+  private readonly bool _isEnabled;
+
+
 
   public FileProcessorService(
       ILogger<FileProcessorService> logger,
-      IConfiguration configuration)
+      IQueue<MyRecord> queue,
+      IQueue<ApiEvent> apiEventQueue,
+      IOptions<FileProcessorServiceOptions> configuration)
   {
     _logger = logger;
-    _configuration = configuration;
+    _queue = queue;
+    _apiEventQueue = apiEventQueue;
+    _targetRate = configuration.Value.TargetRate;
+    _isEnabled = configuration.Value.IsEnabled;
 
-    _logger.LogInformation("FileProcessorService initialized.");
+    if (_isEnabled)
+      _logger.LogInformation($"FileProcessorService initialized and running target througput {(_targetRate == -1 ? "Infinite" : _targetRate)} / sec.");
   }
 
   public async Task StartAsync(CancellationToken cancellationToken)
   {
-    string serviceBusName = _configuration["ServiceBus:Name"] ?? "defaultServiceBus";
-    string topicName = _configuration["ServiceBus:RecordTopicName"] ?? "defaultRecordTopic";
-    string subscriptionName = _configuration["ServiceBus:SubscriptionName"] ?? "defaultSubscription";
-    string tenantId = _configuration["ServiceBus:TenantId"] ?? "defaultTenantId";
-
-    await using ServiceBusClient client = new(serviceBusName,
-        new DefaultAzureCredential(new DefaultAzureCredentialOptions()
-        {
-          TenantId = tenantId
-        }
-      ));
-
-    // create a receiver for our subscription that we can use to receive the message
-    ServiceBusReceiver receiver = client.CreateReceiver(topicName, subscriptionName);
-
-    // the received message is a different type as it contains some service set properties
-    while (cancellationToken.IsCancellationRequested == false)
+    if (_isEnabled)
     {
-      try
+      int newWaitTime = 0;
+      int lastWaitTime = 0;
+      double targetTimePerOperation = double.Max(0, 1000 / _targetRate);
+
+      // we will use a stopwatch to measure the time taken to process the messages
+      System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+      while (cancellationToken.IsCancellationRequested == false)
       {
-        // receive a message from the queue
-        ServiceBusReceivedMessage receivedMessage = await receiver.ReceiveMessageAsync(null, cancellationToken);
-
-        if (receivedMessage != null)
+        try
         {
-          // process the message
+          // wait for the processing rate         
+          if (newWaitTime > 0) await Task.Delay(newWaitTime, cancellationToken);
+          // receive a message from the queue
+          var receivedMessage = await _queue.DequeueRecordAsync((receivedMessage) =>
+            {
+              // process the message
+              // get the message body as a string
 
-          // get the message body as a string
-          string body = receivedMessage.Body.ToString();
-          Console.WriteLine(body);
 
-          // ProcessMessageAsync(receivedMessage).GetAwaiter().GetResult();
+              _logger.LogInformation($"Received message: {receivedMessage.ToString() ?? "<EMPTY>"}");
 
-          // complete the message so that it is not received again
-          receiver.CompleteMessageAsync(receivedMessage, cancellationToken).GetAwaiter().GetResult();
+              // Simulate Calling the API which will process the the message
+
+              ApiEvent apiEvent = new ApiEvent
+              {
+                Id = receivedMessage.Id,
+                Metadata = receivedMessage.Metadata,
+                IsSuccess = true // Simulate a successful API call
+              };
+
+              // Simulate the API recording the successful processing of the message
+              _apiEventQueue.EnqueueRecordAsync(apiEvent).GetAwaiter().GetResult();
+
+              return true; // return true to indicate that the message was passed to the API for processing          
+
+            }
+          , cancellationToken);
+
+          lastWaitTime = newWaitTime;
+          newWaitTime = int.Max(0, (int)(targetTimePerOperation - stopwatch.ElapsedMilliseconds));
+
+          if (lastWaitTime != newWaitTime) _logger.LogInformation($"Operation Delay now {newWaitTime}");
+
+          stopwatch.Restart();
+        }
+        catch (TaskCanceledException)
+        {
+
+        }
+        catch (Exception ex)
+        {
+          _logger.LogError(ex, "Error processing message.");
         }
       }
-      catch (TaskCanceledException)
-      { 
-        
-      }
-      catch (Exception ex)
-      {
-        _logger.LogError(ex, "Error processing message.");
-      }
-    }
 
-    _logger.LogInformation("Cancellation requested, stopping FileProcessorService.");
-     
+      _logger.LogInformation("Cancellation requested, stopping FileProcessorService.");
+    }
+    
     await Task.CompletedTask;
   }
 
+
+
   public async Task StopAsync(CancellationToken cancellationToken)
   {
-      await Task.CompletedTask;
+    await Task.CompletedTask;
   }
 }

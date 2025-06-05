@@ -39,20 +39,24 @@ class Program
             logging.AddDebug();
         });
         
-        builder.ConfigureServices(
-            services =>
-            {
+        builder.ConfigureServices((context, services) =>
+            {          
+                services.Configure<FileProcessorServiceOptions>(context.Configuration.GetSection("FileProcessorService"));
+                services.Configure<ServiceBusQueue<MyRecord>.QueueConfiguration>(context.Configuration.GetSection("ServiceBusMyRecordQueue"));
+                services.Configure<ServiceBusQueue<ApiEvent>.QueueConfiguration>(context.Configuration.GetSection("ServiceBusApiEventQueue"));
+                services.Configure<FileIngestorServiceOptions>(context.Configuration.GetSection("FileIngestorService"));
+
                 // Register your services here
+                services.AddSingleton<IQueue<MyRecord>, ServiceBusQueue<MyRecord>>();
+                services.AddSingleton<IQueue<ApiEvent>, ServiceBusQueue<ApiEvent>>();            
                 services.AddSingleton<IFileJobStorageRepository, FileJobStorage>();
-                services.AddTransient<IQueue, QueueManager>();                
+                                
                 services.AddHostedService<FileIngestorService>();
-                services.AddHostedService<FileProcessorService>();
-                
+                services.AddHostedService<FileProcessorService>();                
             }
         );
 
-        IHost host = builder.Build();
-        
+        IHost host = builder.Build();        
 
         await host.RunAsync();        
     }
