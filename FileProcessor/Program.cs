@@ -43,15 +43,12 @@ class Program
             {          
                 services.Configure<FileProcessorServiceOptions>(context.Configuration.GetSection("FileProcessorService"));
                 services.Configure<ServiceBusQueue<MyRecord>.QueueConfiguration>(context.Configuration.GetSection("ServiceBusMyRecordQueue"));
-                services.Configure<ServiceBusQueue<ApiEvent>.QueueConfiguration>(context.Configuration.GetSection("ServiceBusApiEventQueue"));
-                services.Configure<FileIngestorServiceOptions>(context.Configuration.GetSection("FileIngestorService"));
+                services.Configure<ServiceBusQueue<ApiEvent>.QueueConfiguration>(context.Configuration.GetSection("ServiceBusApiEventQueue"));              
 
                 // Register your services here
                 services.AddSingleton<IQueue<MyRecord>, ServiceBusQueue<MyRecord>>();
-                services.AddSingleton<IQueue<ApiEvent>, ServiceBusQueue<ApiEvent>>();            
-                services.AddSingleton<IFileJobStorageRepository, FileJobStorage>();
-                                
-                services.AddHostedService<FileIngestorService>();
+                services.AddSingleton<IQueue<ApiEvent>, ServiceBusQueue<ApiEvent>>();                    
+                                                
                 services.AddHostedService<FileProcessorService>();                
             }
         );
