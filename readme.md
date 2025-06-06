@@ -11,6 +11,9 @@ Key points and observations
     - It's recommend that the API leverages queues/topics to further implement scale-out and rate limiting to ensuring performance and reliability objectives of the solution.
     - API should emit Events pushlished to the Azure Service Bus on a separate Topic, for example an `ApiEvents` Topic. Applications can subscribe to ApiEvents and optionally filter for interested events.
 
+# Test Data Used #
+> ℹ️ The example companies, organizations, products, domain names, e-mail addresses, logos, people, places, and events depicted herein are fictitious. No association with any real company, organization, product, domain name, e-mail address, logo, person, places, or events is intended or should be inferred
+
 ## Example High Level Flow
 
 ```mermaid
@@ -77,4 +80,8 @@ sequenceDiagram
             end       
     end     
 ```
+# ServiceBus
 
+There are two topics in the ServiceBus with the `FileProcessor` subscription listening to the `Records` topic.
+
+![ServiceBus Architecture Diagram](./Documentation/servicebus.jpg)
