@@ -80,4 +80,8 @@ sequenceDiagram
             end       
     end     
 ```
+# ServiceBus
 
+There are two topics in the ServiceBus with the `FileProcessor` subscription listening to the `Records` topic.
+
+![ServiceBus Architecture Diagram](./Documentation/servicebus.jpg)
